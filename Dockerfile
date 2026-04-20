@@ -16,7 +16,7 @@ RUN apk add --no-cache curl ca-certificates tar libc6-compat
 
 RUN set -eux; \
     case "${TARGETARCH}" in \
-      amd64)  ARCH=x86_64 ;; \
+      amd64)  ARCH=amd64 ;; \
       arm64)  ARCH=arm64 ;; \
       arm)    ARCH=armv6 ;; \
       *)      echo "unsupported arch: ${TARGETARCH}" && exit 1 ;; \
