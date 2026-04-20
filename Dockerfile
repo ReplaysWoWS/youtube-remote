@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bookworm AS base
+FROM python:3.12-alpine AS base
 
 ARG UPLOADER_VERSION=1.25.5
 ARG TARGETARCH=amd64
@@ -10,11 +10,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UPLOADER_TOKEN=/config/request.token \
     UPLOADER_WORK_DIR=/var/lib/youtube-remote
 
-# docker-clean's post-invoke hook breaks on old overlay2; drop it.
-RUN rm -f /etc/apt/apt.conf.d/docker-clean \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates tar \
-    && rm -rf /var/lib/apt/lists/*
+# curl + tar to fetch the uploader. libc6-compat covers the
+# off chance the Go binary was built with cgo (needs glibc).
+RUN apk add --no-cache curl ca-certificates tar libc6-compat
 
 RUN set -eux; \
     case "${TARGETARCH}" in \
@@ -41,7 +39,7 @@ COPY app ./app
 COPY client_secrets.json /config/client_secrets.json
 
 RUN mkdir -p /config "${UPLOADER_WORK_DIR}" \
-    && useradd --system --uid 1000 --home-dir /app app \
+    && adduser -D -u 1000 -h /app app \
     && chown -R app:app /app /config "${UPLOADER_WORK_DIR}" \
     && chmod 600 /config/client_secrets.json
 
