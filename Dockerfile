@@ -10,7 +10,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UPLOADER_TOKEN=/config/request.token \
     UPLOADER_WORK_DIR=/var/lib/youtube-remote
 
-RUN apt-get update \
+# docker-clean's post-invoke hook breaks on old overlay2; drop it.
+RUN rm -f /etc/apt/apt.conf.d/docker-clean \
+    && apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates tar \
     && rm -rf /var/lib/apt/lists/*
 
