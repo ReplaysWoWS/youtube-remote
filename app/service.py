@@ -136,7 +136,6 @@ class UploadService:
                     "-filename", str(video_path),
                     "-secrets", SECRETS_PATH,
                     "-cache", TOKEN_PATH,
-                    "-headlessAuth",
                     "-logLevel", "INFO",
                 ]
                 if meta_file is not None:
