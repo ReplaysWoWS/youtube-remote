@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS base
+FROM python:3.12-slim-bookworm AS base
 
 ARG UPLOADER_VERSION=1.25.5
 ARG TARGETARCH=amd64
