@@ -83,7 +83,7 @@ async def upload(
     publicStatsViewable: bool | None = Form(None),
     notifySubscribers: bool | None = Form(None),
     meta_json: str | None = Form(None, description="Full meta JSON; overrides other fields"),
-    thumbnail: UploadFile | None = File(None),
+    thumbnail: UploadFile | str | None = File(None),
 ) -> EnqueueResponse:
     ok, msg = service.config_ok()
     if not ok:
@@ -116,7 +116,7 @@ async def upload(
     video_path, size = save_upload_to_tempfile(video, video_suffix)
 
     thumb_path: Path | None = None
-    if thumbnail is not None and thumbnail.filename:
+    if isinstance(thumbnail, UploadFile) and thumbnail.filename:
         thumb_suffix = Path(thumbnail.filename).suffix or ".jpg"
         thumb_path, _ = save_upload_to_tempfile(thumbnail, thumb_suffix)
 

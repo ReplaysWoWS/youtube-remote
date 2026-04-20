@@ -25,8 +25,7 @@ RUN set -eux; \
       "https://github.com/porjo/youtubeuploader/releases/download/v${UPLOADER_VERSION}/youtubeuploader_${UPLOADER_VERSION}_Linux_${ARCH}.tar.gz"; \
     tar -xzf /tmp/yu.tar.gz -C /usr/local/bin/ youtubeuploader; \
     chmod +x /usr/local/bin/youtubeuploader; \
-    rm /tmp/yu.tar.gz; \
-    /usr/local/bin/youtubeuploader -showAppVersion || true
+    rm /tmp/yu.tar.gz
 
 WORKDIR /app
 
