@@ -1,0 +1,27 @@
+services:
+  youtube-remote:
+    build: .
+    image: youtube-remote:latest
+    container_name: youtube-remote
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      LOG_LEVEL: INFO
+      # client_secrets.json is baked into the image at build time.
+      # The token lives on a bind mount so it survives container rebuilds
+      # and can be refreshed by the uploader at runtime.
+      UPLOADER_TOKEN: /data/request.token
+      # Tune if needed:
+      # UPLOADER_MAX_JOB_HISTORY: "200"
+      # UPLOADER_MAX_LOG_LINES: "2000"
+    volumes:
+      # Obtain request.token beforehand by running the binary locally:
+      #   youtubeuploader -filename some.mp4 -secrets client_secrets.json
+      # then place the resulting request.token into ./data/.
+      - ./data:/data
+      # Scratch space for in-flight uploads. Keep on fast local disk.
+      - youtube-remote-work:/var/lib/youtube-remote
+
+volumes:
+  youtube-remote-work:

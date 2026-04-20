@@ -1,0 +1,23 @@
+# Secrets — never commit
+client_secrets.json
+request.token
+*.token
+
+# Local runtime state
+/config/
+/data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+
+# Editors
+.idea/
+.vscode/
+*.swp
