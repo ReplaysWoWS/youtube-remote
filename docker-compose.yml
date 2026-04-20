@@ -10,6 +10,9 @@ services:
       - "8000:8000"
     environment:
       LOG_LEVEL: INFO
+      # Required. Set via .env or shell env before `docker-compose up`.
+      # Example: AUTH_TOKEN=$(openssl rand -hex 32)
+      AUTH_TOKEN: ${AUTH_TOKEN}
       # client_secrets.json is baked into the image at build time.
       # The token lives on a bind mount so it survives container rebuilds
       # and can be refreshed by the uploader at runtime.

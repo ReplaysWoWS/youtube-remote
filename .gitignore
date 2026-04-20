@@ -2,6 +2,8 @@
 client_secrets.json
 request.token
 *.token
+.env
+.env.local
 
 # Local runtime state
 /config/

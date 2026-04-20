@@ -5,9 +5,10 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import PlainTextResponse
 
+from .auth import require_token
 from .models import EnqueueResponse, Job, JobListItem, JobStatus, VideoMeta
 from .service import UploadService, save_upload_to_tempfile
 
@@ -26,7 +27,7 @@ def health() -> dict[str, object]:
     return {"ok": ok, "detail": msg}
 
 
-@app.get("/jobs", response_model=list[JobListItem])
+@app.get("/jobs", response_model=list[JobListItem], dependencies=[Depends(require_token)])
 def list_jobs() -> list[JobListItem]:
     return [
         JobListItem(
@@ -40,7 +41,7 @@ def list_jobs() -> list[JobListItem]:
     ]
 
 
-@app.get("/jobs/{job_id}", response_model=Job)
+@app.get("/jobs/{job_id}", response_model=Job, dependencies=[Depends(require_token)])
 def get_job(job_id: str) -> Job:
     job = service.get_job(job_id)
     if not job:
@@ -48,7 +49,7 @@ def get_job(job_id: str) -> Job:
     return job
 
 
-@app.get("/jobs/{job_id}/log", response_class=PlainTextResponse)
+@app.get("/jobs/{job_id}/log", response_class=PlainTextResponse, dependencies=[Depends(require_token)])
 def get_job_log(job_id: str) -> str:
     lines = service.get_log(job_id)
     if lines is None:
@@ -56,7 +57,7 @@ def get_job_log(job_id: str) -> str:
     return "\n".join(lines)
 
 
-@app.post("/jobs/{job_id}/cancel")
+@app.post("/jobs/{job_id}/cancel", dependencies=[Depends(require_token)])
 async def cancel_job(job_id: str) -> dict[str, object]:
     job = service.get_job(job_id)
     if not job:
@@ -65,7 +66,7 @@ async def cancel_job(job_id: str) -> dict[str, object]:
     return {"ok": ok, "status": job.status}
 
 
-@app.post("/upload", response_model=EnqueueResponse, status_code=202)
+@app.post("/upload", response_model=EnqueueResponse, status_code=202, dependencies=[Depends(require_token)])
 async def upload(
     video: UploadFile = File(..., description="Video file to upload"),
     title: str | None = Form(None),
