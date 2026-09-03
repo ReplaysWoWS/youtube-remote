@@ -47,6 +47,7 @@ class Job(BaseModel):
     filename: str
     size_bytes: int
     meta: VideoMeta
+    channel: str = "unlisted"
     exit_code: int | None = None
     video_id: str | None = None
     video_url: str | None = None
@@ -58,6 +59,7 @@ class JobListItem(BaseModel):
     status: JobStatus
     created_at: datetime
     filename: str
+    channel: str = "unlisted"
     video_id: str | None = None
 
 

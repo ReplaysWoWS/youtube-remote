@@ -13,17 +13,28 @@ services:
       # Required. Set via .env or shell env before `docker-compose up`.
       # Example: AUTH_TOKEN=$(openssl rand -hex 32)
       AUTH_TOKEN: ${AUTH_TOKEN}
-      # client_secrets.json is baked into the image at build time.
-      # The token lives on a bind mount so it survives container rebuilds
-      # and can be refreshed by the uploader at runtime.
+      # client_secrets.json is baked into the image at build time and is
+      # shared by both channels (it just identifies the OAuth client, not
+      # the account). Each channel needs its own token cache below. Which
+      # channel a video goes to is picked automatically from the requested
+      # privacyStatus — there is no channel to choose explicitly.
+      #
+      # "unlisted" is the original, already-logged-in channel. Uploads
+      # requesting privacyStatus=unlisted (or omitting it) keep landing
+      # here, unchanged from before.
       UPLOADER_TOKEN: /data/request.token
+      # "public" is the second channel. Uploads requesting
+      # privacyStatus=public land here instead.
+      UPLOADER_TOKEN_PUBLIC: /data/request-public.token
       # Tune if needed:
       # UPLOADER_MAX_JOB_HISTORY: "200"
       # UPLOADER_MAX_LOG_LINES: "2000"
     volumes:
-      # Obtain request.token beforehand by running the binary locally:
-      #   youtubeuploader -filename some.mp4 -secrets client_secrets.json
-      # then place the resulting request.token into ./data/.
+      # Obtain each channel's request.token beforehand by running the
+      # binary locally, logged into that channel's Google account:
+      #   youtubeuploader -filename some.mp4 -secrets client_secrets.json -cache request.token
+      #   youtubeuploader -filename some.mp4 -secrets client_secrets.json -cache request-public.token
+      # then place both resulting token files into ./data/.
       - ./data:/data
       # Scratch space for in-flight uploads. Keep on fast local disk.
       - youtube-remote-work:/var/lib/youtube-remote

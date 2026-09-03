@@ -10,7 +10,7 @@ from fastapi.responses import PlainTextResponse
 
 from .auth import require_token
 from .models import EnqueueResponse, Job, JobListItem, JobStatus, VideoMeta
-from .service import UploadService, save_upload_to_tempfile
+from .service import UploadService, channel_for_privacy, save_upload_to_tempfile
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -23,8 +23,8 @@ service = UploadService()
 
 @app.get("/health")
 def health() -> dict[str, object]:
-    ok, msg = service.config_ok()
-    return {"ok": ok, "detail": msg}
+    channels = service.channel_status()
+    return {"ok": all(c["ok"] for c in channels.values()), "channels": channels}
 
 
 @app.get("/jobs", response_model=list[JobListItem], dependencies=[Depends(require_token)])
@@ -35,6 +35,7 @@ def list_jobs() -> list[JobListItem]:
             status=j.status,
             created_at=j.created_at,
             filename=j.filename,
+            channel=j.channel,
             video_id=j.video_id,
         )
         for j in service.list_jobs()
@@ -86,10 +87,6 @@ async def upload(
     meta_json: str | None = Form(None, description="Full meta JSON; overrides other fields"),
     thumbnail: UploadFile | str | None = File(None),
 ) -> EnqueueResponse:
-    ok, msg = service.config_ok()
-    if not ok:
-        raise HTTPException(status_code=503, detail=msg)
-
     if meta_json:
         try:
             meta = VideoMeta(**json.loads(meta_json))
@@ -112,6 +109,11 @@ async def upload(
             publicStatsViewable=publicStatsViewable,
             notifySubscribers=notifySubscribers,
         )
+
+    channel = channel_for_privacy(meta.privacyStatus)
+    ok, msg = service.config_ok(channel)
+    if not ok:
+        raise HTTPException(status_code=503, detail=msg)
 
     video_suffix = Path(video.filename or "upload.mp4").suffix or ".mp4"
     video_path, size = save_upload_to_tempfile(video, video_suffix)

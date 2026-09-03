@@ -18,10 +18,44 @@ log = logging.getLogger("youtube-remote.service")
 
 UPLOADER_BIN = os.environ.get("UPLOADER_BIN", "/usr/local/bin/youtubeuploader")
 SECRETS_PATH = os.environ.get("UPLOADER_SECRETS", "/config/client_secrets.json")
-TOKEN_PATH = os.environ.get("UPLOADER_TOKEN", "/config/request.token")
 WORK_DIR = Path(os.environ.get("UPLOADER_WORK_DIR", "/tmp/youtube-remote"))
 MAX_LOG_LINES = int(os.environ.get("UPLOADER_MAX_LOG_LINES", "2000"))
 MAX_JOB_HISTORY = int(os.environ.get("UPLOADER_MAX_JOB_HISTORY", "200"))
+
+# Two independently-authed YouTube channels, picked automatically from the
+# requested privacyStatus — callers don't choose a channel, just the
+# visibility they want. "unlisted" is the original, already-logged-in
+# channel, kept as the default so requests that don't specify privacyStatus
+# keep uploading link-only videos there exactly as before. "public" videos
+# go to a second channel, authed separately. Each channel needs its own
+# OAuth token cache (obtained by running youtubeuploader locally, logged
+# into that channel's Google account, with `-cache` pointed at that
+# channel's token path) but both can share the same client_secrets.json
+# since that just identifies the OAuth client, not the account.
+DEFAULT_CHANNEL = "unlisted"
+
+CHANNELS: dict[str, dict[str, str]] = {
+    "unlisted": {
+        "token_path": os.environ.get("UPLOADER_TOKEN", "/config/request.token"),
+    },
+    "public": {
+        "token_path": os.environ.get("UPLOADER_TOKEN_PUBLIC", "/config/request-public.token"),
+    },
+}
+
+# privacyStatus -> channel. Anything not listed here (including no
+# privacyStatus at all) falls back to DEFAULT_CHANNEL.
+PRIVACY_TO_CHANNEL: dict[str, str] = {
+    "public": "public",
+    "unlisted": "unlisted",
+}
+
+
+def channel_for_privacy(privacy_status: str | None) -> str:
+    if privacy_status is None:
+        return DEFAULT_CHANNEL
+    return PRIVACY_TO_CHANNEL.get(privacy_status, DEFAULT_CHANNEL)
+
 
 _VIDEO_ID_RE = re.compile(
     r"(?:Video ID:\s*|https?://(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/))"
@@ -40,14 +74,20 @@ class UploadService:
         self._queue: list[str] = []
         WORK_DIR.mkdir(parents=True, exist_ok=True)
 
-    def config_ok(self) -> tuple[bool, str]:
+    def config_ok(self, channel: str = DEFAULT_CHANNEL) -> tuple[bool, str]:
+        if channel not in CHANNELS:
+            return False, f"unknown channel {channel!r}"
         if not Path(UPLOADER_BIN).exists() and not shutil.which(UPLOADER_BIN):
             return False, f"uploader binary not found at {UPLOADER_BIN}"
         if not Path(SECRETS_PATH).exists():
             return False, f"client secrets not found at {SECRETS_PATH}"
-        if not Path(TOKEN_PATH).exists():
-            return False, f"token cache not found at {TOKEN_PATH}"
+        token_path = CHANNELS[channel]["token_path"]
+        if not Path(token_path).exists():
+            return False, f"token cache for channel {channel!r} not found at {token_path}"
         return True, "ok"
+
+    def channel_status(self) -> dict[str, dict[str, object]]:
+        return {name: dict(zip(("ok", "detail"), self.config_ok(name))) for name in CHANNELS}
 
     def get_job(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
@@ -73,6 +113,10 @@ class UploadService:
         meta: VideoMeta,
         thumbnail_path: Path | None,
     ) -> Job:
+        if meta.privacyStatus is None:
+            meta = meta.model_copy(update={"privacyStatus": "unlisted"})
+        channel = channel_for_privacy(meta.privacyStatus)
+
         job_id = uuid.uuid4().hex
         job = Job(
             id=job_id,
@@ -81,6 +125,7 @@ class UploadService:
             filename=filename,
             size_bytes=size_bytes,
             meta=meta,
+            channel=channel,
         )
         self._jobs[job_id] = job
         self._logs[job_id] = []
@@ -135,7 +180,7 @@ class UploadService:
                     UPLOADER_BIN,
                     "-filename", str(video_path),
                     "-secrets", SECRETS_PATH,
-                    "-cache", TOKEN_PATH,
+                    "-cache", CHANNELS[job.channel]["token_path"],
                 ]
                 if meta_file is not None:
                     cmd += ["-metaJSON", str(meta_file)]
